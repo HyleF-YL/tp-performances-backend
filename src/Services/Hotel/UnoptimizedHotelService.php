@@ -4,6 +4,7 @@ namespace App\Services\Hotel;
 
 use App\Common\FilterException;
 use App\Common\SingletonTrait;
+use App\Common\Timers;
 use App\Entities\HotelEntity;
 use App\Entities\RoomEntity;
 use App\Services\Room\RoomService;
@@ -58,7 +59,6 @@ class UnoptimizedHotelService extends AbstractHotelService {
     return $output;
   }
   
-  
   /**
    * Charge toutes les meta données de l'instance donnée
    *
@@ -67,6 +67,7 @@ class UnoptimizedHotelService extends AbstractHotelService {
    * @return void
    */
   protected function loadMetas ( HotelEntity $hotel ) : void {
+
     $hotel->setAddress( [
       'address_1' => $this->getMeta( $hotel->getId(), 'address_1' ),
       'address_2' => $this->getMeta( $hotel->getId(), 'address_2' ),
@@ -216,9 +217,11 @@ class UnoptimizedHotelService extends AbstractHotelService {
     $hotel = ( new HotelEntity() )
       ->setId( $data['ID'] )
       ->setName( $data['display_name'] );
-    
     $this->loadMetas( $hotel );
+    $timer = Timers::getInstance();
+    $timerID = $timer->startTimer("loadReviews");
     $this->loadReviews( $hotel );
+      $timer->endTimer("loadReviews", $timerID);
     $this->loadCheapestRoom( $hotel, $args );
     
     // Verification de la distance
@@ -263,7 +266,10 @@ class UnoptimizedHotelService extends AbstractHotelService {
     $results = [];
     foreach ( $stmt->fetchAll( PDO::FETCH_ASSOC ) as $row ) {
       try {
-        $results[] = $this->convertEntityFromArray( $row, $args );
+          $timer = Timers::getInstance();
+          $timerID = $timer->startTimer("convertEntity");
+          $results[] = $this->convertEntityFromArray( $row, $args );
+          $timer->endTimer("convertEntity",$timerID);
       } catch ( FilterException $e ) {
         // Des FilterException peuvent être déclenchées pour exclure certains hotels des résultats
       }

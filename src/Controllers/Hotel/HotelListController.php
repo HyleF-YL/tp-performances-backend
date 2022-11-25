@@ -2,6 +2,7 @@
 
 namespace App\Controllers\Hotel;
 
+use App\Common\Timers;
 use App\Controllers\AbstractController;
 use App\Services\Hotel\AbstractHotelService;
 use App\Services\Room\AbstractRoomService;
@@ -140,13 +141,16 @@ class HotelListController extends AbstractController {
         continue;
       $args['types'][] = $type;
     }
-    
+    $timer = Timers::getInstance();
+    $timerID = $timer->startTimer("list");
     $hotels = $this->hotelService->list( $args );
-    
+    $timer->endTimer("list",$timerID);
+
+    header('Server-Timing: ' . Timers::getInstance()->getTimers());
     echo get_template( __PROJECT_ROOT__ . "/Views/hotel-list.php", [
       'hotels' => $hotels,
       'filters' => $formValues,
-      'typesCounters' => $typesCountersLabels,
+      'typesCounters' => $typesCountersLabels
     ] );
   }
 }

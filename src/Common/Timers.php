@@ -60,7 +60,7 @@ class Timers {
   /**
    * Calcule la durée de chacun des timers et les formatent pour qu'ils soient écrits en header HTTP
    *
-   * @example header('Server-Timing: ' . Timers::getInstance()->getTimers() );
+   * @example
    *
    * @return string
    */
