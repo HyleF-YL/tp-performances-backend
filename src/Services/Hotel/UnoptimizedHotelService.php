@@ -3,7 +3,9 @@
 namespace App\Services\Hotel;
 
 use App\Common\FilterException;
+use App\Common\SingletonDB;
 use App\Common\SingletonTrait;
+use App\Common\Timers;
 use App\Entities\HotelEntity;
 use App\Entities\RoomEntity;
 use App\Services\Room\RoomService;
@@ -14,9 +16,10 @@ use PDO;
  * Une classe utilitaire pour récupérer les données des magasins stockés en base de données
  */
 class UnoptimizedHotelService extends AbstractHotelService {
-  
+
+  private SingletonDB $PDO;
+
   use SingletonTrait;
-  
   
   protected function __construct () {
     parent::__construct( new RoomService() );
@@ -26,11 +29,15 @@ class UnoptimizedHotelService extends AbstractHotelService {
   /**
    * Récupère une nouvelle instance de connexion à la base de donnée
    *
-   * @return PDO
+   * @return SingletonDB
    * @noinspection PhpUnnecessaryLocalVariableInspection
    */
-  protected function getDB () : PDO {
-    $pdo = new PDO( "mysql:host=db;dbname=tp;charset=utf8mb4", "root", "root" );
+  protected function getDB (): PDO
+  {
+    $timer = Timers::getInstance();
+    $timerID = $timer->startTimer('getDB');
+    $pdo = SingletonDB::get();
+    $timer->endTimer('getDB',$timerID);
     return $pdo;
   }
   
@@ -44,8 +51,7 @@ class UnoptimizedHotelService extends AbstractHotelService {
    * @return string|null
    */
   protected function getMeta ( int $userId, string $key ) : ?string {
-    $db = $this->getDB();
-    $stmt = $db->prepare( "SELECT * FROM wp_usermeta" );
+    $stmt = $this->getDB()->prepare( "SELECT * FROM wp_usermeta" );
     $stmt->execute();
     
     $result = $stmt->fetchAll( PDO::FETCH_ASSOC );
@@ -225,7 +231,10 @@ class UnoptimizedHotelService extends AbstractHotelService {
       ->setName( $data['display_name'] );
     
     // Charge les données meta de l'hôtel
+    $timer = Timers::getInstance();
+    $timerID = $timer->startTimer('getMetas');
     $metasData = $this->getMetas( $hotel );
+    $timer->endTimer('getMetas',$timerID);
     $hotel->setAddress( $metasData['address'] );
     $hotel->setGeoLat( $metasData['geo_lat'] );
     $hotel->setGeoLng( $metasData['geo_lng'] );
@@ -233,12 +242,17 @@ class UnoptimizedHotelService extends AbstractHotelService {
     $hotel->setPhone( $metasData['phone'] );
     
     // Définit la note moyenne et le nombre d'avis de l'hôtel
-    $reviewsData = $this->getReviews( $hotel );
+
+        $timerID = $timer->startTimer('getReviews');
+        $reviewsData = $this->getReviews( $hotel );
+        $timer->endTimer('getReviews',$timerID);
     $hotel->setRating( $reviewsData['rating'] );
     $hotel->setRatingCount( $reviewsData['count'] );
     
     // Charge la chambre la moins chère de l'hôtel
+    $timerID = $timer->startTimer('getCheapest');
     $cheapestRoom = $this->getCheapestRoom( $hotel, $args );
+    $timer->endTimer('getCheapest',$timerID);
     $hotel->setCheapestRoom($cheapestRoom);
     
     // Verification de la distance
@@ -276,8 +290,8 @@ class UnoptimizedHotelService extends AbstractHotelService {
    * @return HotelEntity[] La liste des boutiques qui correspondent aux paramètres donnés à args
    */
   public function list ( array $args = [] ) : array {
-    $db = $this->getDB();
-    $stmt = $db->prepare( "SELECT * FROM wp_users" );
+
+    $stmt = $this->getDB()->prepare( "SELECT * FROM wp_users" );
     $stmt->execute();
     
     $results = [];

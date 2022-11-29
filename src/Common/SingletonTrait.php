@@ -2,6 +2,8 @@
 
 namespace App\Common;
 
+use PDO;
+
 /**
  * Trait utilitaire pour rendre qu'une classe soit un singleton
  *
@@ -17,8 +19,8 @@ namespace App\Common;
  * ```
  */
 trait SingletonTrait {
-  
-  /**
+
+    /**
    * L'instance du singleton
    * @var static
    */

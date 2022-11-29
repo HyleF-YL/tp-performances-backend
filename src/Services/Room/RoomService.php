@@ -2,19 +2,20 @@
 
 namespace App\Services\Room;
 
+use App\Common\SingletonDB;
 use App\Entities\RoomEntity;
 use PDO;
 
 class RoomService extends AbstractRoomService {
   
-  private PDO $db;
+  private PDO $PDO;
   
   public function __construct() {
-    $this->db = new PDO( "mysql:host=db;dbname=tp;charset=utf8mb4", "root", "root" );
+    $this->PDO = SingletonDB::get();
   }
   
   protected function getDB() : PDO {
-    return $this->db;
+    return $this->PDO;
   }
   
   public function get(int $id) : RoomEntity {
