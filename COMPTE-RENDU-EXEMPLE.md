@@ -27,55 +27,70 @@ Vous pouvez utiliser ce [GSheets](https://docs.google.com/spreadsheets/d/13Hw27U
 
 **Temps de chargement globaux** 
 
-- **Avant** TEMPS
+- **Avant** 28,7s
 
-- **Après** TEMPS
+- **Après** 18,7s
 
 
-#### Amélioration de la méthode `METHOD` et donc de la méthode `METHOD` :
+#### Amélioration de la méthode `GetReviews` et donc de la méthode `METHOD` :
 
-- **Avant** TEMPS
+- **9s** TEMPS
 
 ```sql
--- REQ SQL DE BASE
+SELECT * FROM wp_posts, wp_postmeta WHERE wp_posts.post_author = :hotelId AND wp_posts.ID = wp_postmeta.post_id AND meta_key = 'rating' AND post_type = 'review'
 ```
 
-- **Après** TEMPS
+- **6,16s** TEMPS
 
 ```sql
--- NOUVELLE REQ SQL
-```
-
-
-
-#### Amélioration de la méthode `METHOD` :
-
-- **Avant** TEMPS
-
-```sql
--- REQ SQL DE BASE
-```
-
-- **Après** TEMPS
-
-```sql
--- NOUVELLE REQ SQL
+SELECT meta_value FROM wp_posts, wp_postmeta WHERE wp_posts.post_author = :hotelId AND wp_posts.ID = wp_postmeta.post_id AND meta_key = 'rating' AND post_type = 'review'
 ```
 
 
 
-#### Amélioration de la méthode `METHOD` :
+#### Amélioration de la méthode `GetCheapestRoom` :
 
-- **Avant** TEMPS
+- **16,26s** TEMPS
 
 ```sql
--- REQ SQL DE BASE
+SELECT * FROM wp_posts WHERE post_author = :hotelId AND post_type = 'room'
 ```
 
-- **Après** TEMPS
+- **10,22s** TEMPS
 
 ```sql
--- NOUVELLE REQ SQL
+SELECT
+ posts.ID AS id,
+ CAST(MIN(price.meta_value) AS INT) AS valeur
+
+
+FROM wp_posts AS posts
+
+      INNER JOIN wp_postmeta AS surface ON surface.post_id = posts.ID AND surface.meta_key = 'surface'
+
+      INNER JOIN wp_postmeta AS price ON price.post_id = posts.ID AND price.meta_key = 'price'
+
+      INNER JOIN wp_postmeta AS numberOfRooms ON numberOfRooms.post_id = posts.ID AND numberOfRooms.meta_key='bedrooms_count'
+
+      INNER JOIN wp_postmeta AS numberOfBathrooms ON numberOfBathrooms.post_id = posts.ID AND numberOfBathrooms.meta_key = 'bathrooms_count'
+
+      INNER JOIN wp_postmeta AS typeOfRoom ON typeOfRoom.post_id = posts.ID AND typeOfRoom.meta_key = 'type'
+```
+
+
+
+#### Amélioration de la méthode `GetMeta` :
+
+- **4s** TEMPS
+
+```sql
+SELECT * FROM wp_usermeta
+```
+
+- **1,5s** TEMPS
+
+```sql
+SELECT * FROM wp_usermeta WHERE user_id = :userID AND meta_key = :metaKey
 ```
 
 
