@@ -43,7 +43,7 @@ SELECT * FROM wp_posts, wp_postmeta WHERE wp_posts.post_author = :hotelId AND wp
 - **6,16s** TEMPS
 
 ```sql
-SELECT meta_value FROM wp_posts, wp_postmeta WHERE wp_posts.post_author = :hotelId AND wp_posts.ID = wp_postmeta.post_id AND meta_key = 'rating' AND post_type = 'review'
+SELECT meta_value FROM wp_posts JOIN wp_postmeta ON wp_posts.ID = wp_postmeta.post_id WHERE wp_posts.post_author = :hotelId AND meta_key = 'rating' AND post_type = 'review'
 ```
 
 
@@ -90,7 +90,7 @@ SELECT * FROM wp_usermeta
 - **1,5s** TEMPS
 
 ```sql
-SELECT * FROM wp_usermeta WHERE user_id = :userID AND meta_key = :metaKey
+SELECT meta_value FROM wp_usermeta WHERE user_id = :userID AND meta_key = :metaKey
 ```
 
 
@@ -99,8 +99,8 @@ SELECT * FROM wp_usermeta WHERE user_id = :userID AND meta_key = :metaKey
 
 |                              | **Avant** | **Après** |
 |------------------------------|-----------|-----------|
-| Nombre d'appels de `getDB()` | NOMBRE    | NOMBRE    |
- | Temps de `METHOD`            | TEMPS     | TEMPS     |
+| Nombre d'appels de `getMeta` | 9         | 0         |
+ | Temps de `getMeta`           | 1,40s     | 1,11s     |
 
 ## Question 6 : Création d'un service basé sur une seule requête SQL
 
