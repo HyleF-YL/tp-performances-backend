@@ -32,7 +32,7 @@ Vous pouvez utiliser ce [GSheets](https://docs.google.com/spreadsheets/d/13Hw27U
 - **Après** 18,7s
 
 
-#### Amélioration de la méthode `GetReviews` et donc de la méthode `METHOD` :
+#### Amélioration de la méthode `GetReviews` et donc de la méthode `convertEntityFromArray` :
 
 - **9s** TEMPS
 
@@ -43,7 +43,7 @@ SELECT * FROM wp_posts, wp_postmeta WHERE wp_posts.post_author = :hotelId AND wp
 - **6,16s** TEMPS
 
 ```sql
-SELECT meta_value FROM wp_posts JOIN wp_postmeta ON wp_posts.ID = wp_postmeta.post_id WHERE wp_posts.post_author = :hotelId AND meta_key = 'rating' AND post_type = 'review'
+SELECT COUNT(meta_value), AVG(meta_value) FROM wp_posts JOIN wp_postmeta ON wp_posts.ID = wp_postmeta.post_id WHERE wp_posts.post_author = :hotelId AND meta_key = 'rating' AND post_type = 'review'
 ```
 
 
@@ -97,43 +97,117 @@ SELECT meta_value FROM wp_usermeta WHERE user_id = :userID AND meta_key = :metaK
 
 ## Question 5 : Réduction du nombre de requêtes SQL pour `METHOD`
 
-|                              | **Avant** | **Après** |
-|------------------------------|-----------|-----------|
-| Nombre d'appels de `getMeta` | 9         | 0         |
- | Temps de `getMeta`           | 1,40s     | 1,11s     |
+|                            | **Avant** | **Après** |
+|----------------------------|-----------|-----------|
+| Nombre d'appels de `getDB` | 2201      | 601       |
+ | Temps de `getMeta`         | 1,40s     | 1,11s     |
 
 ## Question 6 : Création d'un service basé sur une seule requête SQL
 
 |                              | **Avant** | **Après** |
 |------------------------------|-----------|-----------|
-| Nombre d'appels de `getDB()` | NOMBRE    | NOMBRE    |
-| Temps de chargement global   | TEMPS     | TEMPS     |
+| Nombre d'appels de `getDB()` | 601       | 1         |
+| Temps de chargement global   | 18 à 20s  | 3 à 4s    |
 
 **Requête SQL**
 
 ```SQL
--- GIGA REQUÊTE
--- INDENTATION PROPRE ET COMMENTAIRES SERONT APPRÉCIÉS MERCI !
+
+SELECT
+    
+   /*Données de l'hôtel*/
+   users.ID AS id,
+   users.display_name AS name,
+   addresse_1.meta_value       as addresse_1,
+   addresse_2.meta_value       as addresse_2,
+   addresse_city.meta_value    as addresse_city,
+   addresse_zip.meta_value     as addresse_zip,
+   addresse_country.meta_value as addresse_country,
+   geoLat.meta_value         as geoLat,
+   geoLng.meta_value         as geoLng,
+   phoneData.meta_value           as phone,
+   coverImageData.meta_value      as coverImage,
+   
+   /*Données de la chambre la moins cher*/
+   cheapestRoom.ID                    as cheapestRoomid,
+   cheapestRoom.price                 as price,
+   cheapestRoom.surface               as surface,
+   cheapestRoom.bedroom               as bedRoomsCount,
+   cheapestRoom.bathroom              as bathRoomsCount,
+   cheapestRoom.type                  as type,
+   
+   /* Les reviews*/
+   COUNT(reviewData.meta_value)   as ratingCount,
+   AVG(reviewData.meta_value)     as rating ,
+   
+   /*Localisation de l'hôtel*/
+   111.111
+    * DEGREES(ACOS(LEAST(1.0, COS(RADIANS( geoLat.meta_value ))
+                               * COS(RADIANS(:lat))
+                               * COS(RADIANS( geoLng.meta_value - :lng ))
+    + SIN(RADIANS( geoLat.meta_value ))
+                               * SIN(RADIANS( :lat ))))) AS distanceKM
+
+
+    
+  FROM
+   /*Recherche des données de l'hôtel*/   
+   wp_users AS users
+    INNER JOIN wp_usermeta as addresse_1       ON addresse_1.user_id       = users.ID     AND addresse_1.meta_key       = 'address_1'
+    INNER JOIN wp_usermeta as addresse_2       ON addresse_2.user_id       = users.ID     AND addresse_2.meta_key       = 'address_2'
+    INNER JOIN wp_usermeta as addresse_city    ON addresse_city.user_id    = users.ID     AND addresse_city.meta_key    = 'address_city'
+    INNER JOIN wp_usermeta as addresse_zip     ON addresse_zip.user_id     = users.ID     AND addresse_zip.meta_key     = 'address_zip'
+    INNER JOIN wp_usermeta as addresse_country ON addresse_country.user_id = users.ID     AND addresse_country.meta_key = 'address_country'
+    INNER JOIN wp_usermeta as geoLat         ON geoLat.user_id         = users.ID     AND geoLat.meta_key         = 'geo_lat'
+    INNER JOIN wp_usermeta as geoLng         ON geoLng.user_id         = users.ID     AND geoLng.meta_key         = 'geo_lng'
+    INNER JOIN wp_usermeta as coverImageData      ON coverImageData.user_id      = users.ID     AND coverImageData.meta_key      = 'coverImage'
+    INNER JOIN wp_usermeta as phoneData           ON phoneData.user_id           = users.ID     AND phoneData.meta_key           = 'phone'
+    INNER JOIN wp_posts    as rating_postData     ON rating_postData.post_author = users.ID     AND rating_postData.post_type    = 'review'
+    INNER JOIN wp_postmeta as reviewData          ON reviewData.post_id = rating_postData.ID   AND reviewData.meta_key          = 'rating'
+
+  /*Recherche de la cheapest room*/
+  INNER JOIN (SELECT
+               posts.ID,
+               posts.post_author,
+               MIN(CAST(price.meta_value AS UNSIGNED)) AS price,
+               CAST(surface.meta_value  AS UNSIGNED) AS surface,
+               CAST(numberOfBedrooms.meta_value AS UNSIGNED) AS bedroom,
+               CAST(numberOfBathrooms.meta_value AS UNSIGNED) AS bathroom,
+               type.meta_value AS type
+              FROM
+               tp.wp_posts AS posts
+                INNER JOIN tp.wp_postmeta AS price ON posts.ID = price.post_id AND price.meta_key = 'price'
+                INNER JOIN wp_postmeta as surface ON surface.post_id = posts.ID AND surface.meta_key = 'surface'
+                INNER JOIN wp_postmeta as numberOfBedrooms ON numberOfBedrooms.post_id = posts.ID AND numberOfBedrooms.meta_key = 'bedrooms_count'
+                INNER JOIN wp_postmeta as numberOfBathrooms ON numberOfBathrooms.post_id = posts.ID AND numberOfBathrooms.meta_key = 'bathrooms_count'
+                INNER JOIN wp_postmeta as type ON type.post_id = posts.ID AND type.meta_key = 'type' WHERE posts.post_type = 'room'
+
+              GROUP BY
+               posts.ID
+ ) AS cheapestRoom ON users.ID = cheapestRoom.post_author WHERE  surface >= :surfaceMin AND  surface <= :surfaceMax AND  price >= :minPrice AND  price <= :maxPrice AND  bedroom >= :numberOfBedrooms AND  bathroom >= numberOfBathrooms AND  type IN :types GROUP BY users.ID
+    HAVING distanceKM <= :distance  ORDER BY `cheapestRoomId` ASC
 ```
 
 ## Question 7 : ajout d'indexes SQL
 
 **Indexes ajoutés**
 
-- `TABLE` : `COLONNES`
-- `TABLE` : `COLONNES`
-- `TABLE` : `COLONNES`
+- `wp_postmeta` : `post_id`
+- `wp_postmeta` : `user_id`
+- `wp_posts` : `post_author`
 
 **Requête SQL d'ajout des indexes** 
 
 ```sql
--- REQ SQL CREATION INDEXES
+ALTER TABLE wp_postmeta ADD INDEX(post_id);
+ALTER TABLE wp_usermeta ADD INDEX(user_id);
+ALTER TABLE wp_posts ADD INDEX(post_author);
 ```
 
 | Temps de chargement de la page | Sans filtre | Avec filtres |
 |--------------------------------|-------------|--------------|
-| `UnoptimizedService`           | TEMPS       | TEMPS        |
-| `OneRequestService`            | TEMPS       | TEMPS        |
+| `UnoptimizedService`           | 18 à 20s    | 1,37s        |
+| `OneRequestService`            | 1,27s       | 0,90s        |
 [Filtres à utiliser pour mesurer le temps de chargement](http://localhost/?types%5B%5D=Maison&types%5B%5D=Appartement&price%5Bmin%5D=200&price%5Bmax%5D=230&surface%5Bmin%5D=130&surface%5Bmax%5D=150&rooms=5&bathRooms=5&lat=46.988708&lng=3.160778&search=Nevers&distance=30)
 
 
